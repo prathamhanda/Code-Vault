@@ -46,7 +46,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/code-v
 if (process.env.NODE_ENV === 'production' && !process.env.MONGODB_URI) {
     console.error('❌ MONGODB_URI is required in production.');
     process.exit(1);
-}
+} 
 
 mongoose
     .connect(MONGODB_URI, {

@@ -14,11 +14,14 @@ const Login = () => {
 
     // ➤ 1. THE BACKDOOR: Check for "Yuvraj"
     if (input.toLowerCase() === "yuvraj") {
-      window.location.href = "/leaderboard";
+      localStorage.setItem("teamId", "yuvraj");
+      localStorage.setItem("isAdmin", "true");
+      window.location.href = "/waiting-room";
       return;
     }
 
     // ➤ 2. STANDARD LOGIN LOGIC
+    localStorage.removeItem("isAdmin");
     setLoading(true);
 
     try {
@@ -32,7 +35,7 @@ const Login = () => {
 
       if (data.status === "SUCCESS") {
         localStorage.setItem("teamId", data.teamId);
-        window.location.href = "/game"; // Redirect to Game Interface
+        window.location.href = "/waiting-room";
       } else {
         setError(data.message || "ACCESS DENIED");
       }

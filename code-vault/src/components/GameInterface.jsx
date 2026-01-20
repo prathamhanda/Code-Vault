@@ -121,6 +121,12 @@ function GameInterface() {
 
   // --- 1. INITIALIZATION & SECURITY CHECKS ---
   useEffect(() => {
+    // Admin accounts should not enter gameplay
+    if (localStorage.getItem("isAdmin") === "true") {
+      window.location.href = "/leaderboard";
+      return;
+    }
+
     // Check Server Status
     const checkServer = async () => {
       try {

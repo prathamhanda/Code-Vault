@@ -22,6 +22,20 @@ mongoose.connect(dbURI)
 let IS_EVENT_ACTIVE = true;
 let IS_GAME_STARTED = false;
 
+const ADMIN_ID = (process.env.ADMIN_ID || 'yuvraj').toLowerCase();
+
+const isAdminRequest = (req) => {
+    const candidate = (
+        req.body?.adminId ||
+        req.body?.teamId ||
+        req.headers['x-admin-id'] ||
+        req.headers['x-team-id']
+    );
+
+    if (!candidate) return false;
+    return String(candidate).trim().toLowerCase() === ADMIN_ID;
+};
+
 // --- ROUTES ---
 
 // 1. TEAM LOGIN
@@ -44,6 +58,9 @@ app.get('/api/game-status', (req, res) => {
 
 // 3. ADMIN: START GAME
 app.post('/api/admin/start-game', (req, res) => {
+    if (!isAdminRequest(req)) {
+        return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
+    }
     IS_GAME_STARTED = true;
     console.log('🚀 SYSTEM ALERT: GAME HAS STARTED.');
     res.json({ message: 'GAME STARTED' });
@@ -51,6 +68,9 @@ app.post('/api/admin/start-game', (req, res) => {
 
 // 4. ADMIN: RESET TEAM
 app.post('/api/admin/reset-team', async (req, res) => {
+    if (!isAdminRequest(req)) {
+        return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
+    }
     const { teamId, restoreScore } = req.body;
     const team = await Team.findOne({ teamId });
     if (!team) return res.status(404).json({ message: 'Team not found' });

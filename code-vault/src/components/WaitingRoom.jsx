@@ -5,6 +5,10 @@ import { Loader2, Lock, Radio } from "lucide-react";
 const WaitingRoom = () => {
   const navigate = useNavigate();
   const [dots, setDots] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState("");
+
+  const isAdmin = localStorage.getItem("isAdmin") === "true";
 
   // 1. Animation Effect
   useEffect(() => {
@@ -21,7 +25,7 @@ const WaitingRoom = () => {
         const res = await fetch("http://localhost:5000/api/game-status");
         const data = await res.json();
         if (data.started) {
-          navigate("/game");
+          navigate(isAdmin ? "/leaderboard" : "/game");
         }
       } catch (err) {
         console.error("Server unreachable");
@@ -31,6 +35,28 @@ const WaitingRoom = () => {
     const poller = setInterval(checkStatus, 2000);
     return () => clearInterval(poller);
   }, [navigate]);
+
+  const handleStartGame = async () => {
+    setStartError("");
+    setStarting(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/admin/start-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId: localStorage.getItem("teamId") }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStartError(data.message || "START REQUEST DENIED");
+        return;
+      }
+      navigate("/leaderboard");
+    } catch (e) {
+      setStartError("SERVER UNREACHABLE");
+    } finally {
+      setStarting(false);
+    }
+  };
 
   return (
     <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-neon-cyan font-mono relative overflow-hidden">
@@ -55,6 +81,45 @@ const WaitingRoom = () => {
           SIGNAL ESTABLISHED
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="z-10 mt-6 w-full max-w-md px-10">
+          <div className="border border-dark-700 bg-dark-900/50 backdrop-blur-md rounded-xl p-6 shadow-2xl">
+            <div className="text-center mb-4">
+              <h2 className="text-xs tracking-[0.3em] text-neon-green font-bold">
+                ADMIN CONSOLE
+              </h2>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Authorize uplink to initiate the event.
+              </p>
+            </div>
+
+            {startError && (
+              <div className="text-center text-xs text-red-500 bg-red-500/10 border border-red-500/20 py-2 rounded mb-4">
+                {startError}
+              </div>
+            )}
+
+            <button
+              onClick={handleStartGame}
+              disabled={starting}
+              className={`w-full py-4 rounded-lg font-black tracking-widest text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
+                starting
+                  ? "bg-gray-800 text-gray-500 cursor-wait"
+                  : "bg-neon-cyan text-black hover:bg-white hover:scale-[1.02] shadow-[0_0_20px_rgba(0,255,255,0.3)]"
+              }`}
+            >
+              {starting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> INITIATING...
+                </>
+              ) : (
+                "START GAME"
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

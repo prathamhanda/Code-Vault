@@ -30,3 +30,4 @@ Thumbs.db
 
 # Testing (if you add tests later)
 coverage/
+node_modules/

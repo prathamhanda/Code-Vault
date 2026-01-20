@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { API_BASE_URL } from "../apiBase";
 
 const Leaderboard = () => {
   const [teams, setTeams] = useState([]);
@@ -20,7 +21,7 @@ const Leaderboard = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/leaderboard");
+        const res = await fetch(`${API_BASE_URL}/api/leaderboard`);
         const data = await res.json();
         setTeams(data);
         setLoading(false);

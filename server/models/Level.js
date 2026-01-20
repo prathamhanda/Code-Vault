@@ -12,9 +12,8 @@ const levelSchema = new mongoose.Schema({
     correctSequence: [String],
     expectedOutput: String,
 
-    // ➤ IMPORTANT: This field must exist for the swap logic to work
     swappableGroups: {
-        type: [[String]], // Array of Arrays of Strings
+        type: [[String]], 
         default: []
     }
 });

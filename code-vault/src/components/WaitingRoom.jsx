@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Lock, Radio } from "lucide-react";
+import { API_BASE_URL } from "../apiBase";
 
 const WaitingRoom = () => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ const WaitingRoom = () => {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/game-status");
+        const res = await fetch(`${API_BASE_URL}/api/game-status`);
         const data = await res.json();
         if (data.started) {
           navigate(isAdmin ? "/leaderboard" : "/game");
@@ -40,7 +41,7 @@ const WaitingRoom = () => {
     setStartError("");
     setStarting(true);
     try {
-      const res = await fetch("http://localhost:5000/api/admin/start-game", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/start-game`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ adminId: localStorage.getItem("teamId") }),

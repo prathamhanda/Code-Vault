@@ -23,6 +23,7 @@ import {
   Maximize,
   Lock,
 } from "lucide-react";
+import { API_BASE_URL } from "../apiBase";
 
 // --- HELPER: Define outside to prevent re-creation loops ---
 const generateRows = (count) => {
@@ -130,7 +131,7 @@ function GameInterface() {
     // Check Server Status
     const checkServer = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/game-status");
+        const res = await fetch(`${API_BASE_URL}/api/game-status`);
         const data = await res.json();
         if (!data.started) {
           window.location.href = "/waiting-room";
@@ -167,7 +168,7 @@ function GameInterface() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/game-data/${teamId}`,
+        `${API_BASE_URL}/api/game-data/${teamId}`,
       );
       const data = await response.json();
 
@@ -237,7 +238,7 @@ function GameInterface() {
     );
 
     try {
-      const response = await fetch("http://localhost:5000/api/submit-code", {
+      const response = await fetch(`${API_BASE_URL}/api/submit-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId, submittedOrder }),
@@ -274,7 +275,7 @@ function GameInterface() {
     setTerminalAttempts(1);
 
     const teamId = localStorage.getItem("teamId");
-    const response = await fetch("http://localhost:5000/api/submit-terminal", {
+    const response = await fetch(`${API_BASE_URL}/api/submit-terminal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teamId, userOutput }),
@@ -303,7 +304,7 @@ function GameInterface() {
 
   const handleSkipTerminal = async () => {
     const teamId = localStorage.getItem("teamId");
-    await fetch("http://localhost:5000/api/skip-terminal", {
+    await fetch(`${API_BASE_URL}/api/skip-terminal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teamId }),
@@ -321,7 +322,7 @@ function GameInterface() {
 
     const teamId = localStorage.getItem("teamId");
     try {
-      const res = await fetch("http://localhost:5000/api/report-violation", {
+      const res = await fetch(`${API_BASE_URL}/api/report-violation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId }),

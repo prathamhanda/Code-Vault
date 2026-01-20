@@ -14,13 +14,32 @@ jobs:
     steps:
       - name: Ping health endpoint
         env:
-          API_HEALTH_URL: ${{ secrets.API_HEALTH_URL }}
+          API_HEALTH_URL: ${{ vars.API_HEALTH_URL || secrets.API_HEALTH_URL }}
         run: |
           if [ -z "$API_HEALTH_URL" ]; then
-            echo "Missing secret API_HEALTH_URL. Add it in GitHub repo Settings -> Secrets and variables -> Actions." >&2
+            echo "Missing API_HEALTH_URL. Add it in GitHub repo Settings -> Secrets and variables -> Actions as either:" >&2
+            echo "- Variable: API_HEALTH_URL" >&2
+            echo "- Secret:   API_HEALTH_URL" >&2
+            echo "Example: https://<your-render-service>.onrender.com/health" >&2
             exit 1
           fi
 
           echo "Pinging: $API_HEALTH_URL"
-          curl -fsS --retry 3 --retry-delay 2 -H "User-Agent: github-actions-keepalive" "$API_HEALTH_URL" > /dev/null
-          echo "OK"
+          http_code=$(curl -sS -o /tmp/health_body.txt -w "%{http_code}" \
+            --fail \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 2 \
+            -H "User-Agent: github-actions-keepalive" \
+            "$API_HEALTH_URL" || true)
+
+          if [ "$http_code" != "200" ]; then
+            echo "Health check failed. HTTP $http_code" >&2
+            echo "--- Response body (first 2KB) ---" >&2
+            head -c 2048 /tmp/health_body.txt >&2 || true
+            echo "---------------------------------" >&2
+            exit 1
+          fi
+
+          echo "OK (HTTP 200)"

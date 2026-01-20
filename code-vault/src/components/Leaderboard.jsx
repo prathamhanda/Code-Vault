@@ -60,8 +60,7 @@ const Leaderboard = () => {
         return;
       }
 
-      // After reset, send admin back to waiting room
-      window.location.href = "/waiting-room";
+      window.location.href = "/";
     } catch (e) {
       setResetError("SERVER UNREACHABLE");
     } finally {

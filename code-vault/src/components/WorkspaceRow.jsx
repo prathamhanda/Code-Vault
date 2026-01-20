@@ -40,7 +40,7 @@ const WorkspaceRow = ({ id, items, onRemoveItem, disabled }) => {
 
       {/* Placeholder Text if Empty */}
       {items.length === 0 && !disabled && (
-        <span className="text-gray-600 text-xs font-mono select-none pointer-events-none">
+        <span className="text-white-600 text-xs font-mono select-none pointer-events-none">
           // Drop code snippet here
         </span>
       )}

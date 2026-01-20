@@ -12,8 +12,10 @@ app.use(express.json());
 app.use(cors());
 
 // DATABASE CONNECTION
-mongoose.connect('mongodb://127.0.0.1:27017/code-vault')
-    .then(() => console.log('✅ Connected to MongoDB'))
+const dbURI = process.env.MONGODB_URI;
+
+mongoose.connect(dbURI)
+    .then(() => console.log('✅ Connected to MongoDB Atlas (Cloud)'))
     .catch(err => console.error('❌ DB Error:', err));
 
 // --- GLOBAL STATE ---

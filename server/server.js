@@ -9,29 +9,62 @@ const Level = require('./models/Level');
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+if (process.env.CORS_ORIGIN) {
+    const allowedOrigins = new Set(
+        process.env.CORS_ORIGIN.split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+    );
+
+    app.use(
+        cors({
+            origin(origin, callback) {
+                if (!origin) return callback(null, true);
+                return callback(null, allowedOrigins.has(origin));
+            }
+        })
+    );
+} else {
+    app.use(cors());
+}
+
+app.get(['/health', '/healthz'], (_req, res) => {
+    res.status(200).json({ ok: true });
+});
+
+app.get('/', (_req, res) => {
+    res.status(200).json({
+        ok: true,
+        message: 'Code Vault API is running. Use /health to validate.'
+    });
+});
 
 // DATABASE CONNECTION
-const dbURI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/code-vault';
 
-mongoose.connect(dbURI)
-    .then(() => console.log('✅ Connected to MongoDB Atlas (Cloud)'))
-    .catch(err => console.error('❌ DB Error:', err));
+if (process.env.NODE_ENV === 'production' && !process.env.MONGODB_URI) {
+    console.error('❌ MONGODB_URI is required in production.');
+    process.exit(1);
+}
+
+mongoose
+    .connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 10000
+    })
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => {
+        console.error('❌ DB Error:', err);
+        process.exit(1);
+    });
 
 // --- GLOBAL STATE ---
 let IS_EVENT_ACTIVE = true;
 let IS_GAME_STARTED = false;
 
 const ADMIN_ID = (process.env.ADMIN_ID || 'yuvraj').toLowerCase();
-
 const isAdminRequest = (req) => {
-    const candidate = (
-        req.body?.adminId ||
-        req.body?.teamId ||
-        req.headers['x-admin-id'] ||
-        req.headers['x-team-id']
-    );
-
+    const candidate = req.body?.adminId || req.headers['x-admin-id'];
     if (!candidate) return false;
     return String(candidate).trim().toLowerCase() === ADMIN_ID;
 };
@@ -272,5 +305,21 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+const PORT = Number.parseInt(process.env.PORT, 10) || 5000;
+const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+const shutdown = async (signal) => {
+    console.log(`\n🛑 Received ${signal}. Shutting down...`);
+    server.close(async () => {
+        try {
+            await mongoose.connection.close(false);
+        } catch (err) {
+            console.error('❌ Error closing Mongo connection:', err);
+        } finally {
+            process.exit(0);
+        }
+    });
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

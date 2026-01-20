@@ -116,6 +116,34 @@ app.post('/api/admin/reset-team', async (req, res) => {
     res.json({ status: 'SUCCESS', message: `Team ${teamId} reset.`, currentScore: team.score });
 });
 
+// 4b. ADMIN: RESET GAME (Start Over)
+app.post('/api/admin/reset-game', async (req, res) => {
+    if (!isAdminRequest(req)) {
+        return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
+    }
+
+    IS_GAME_STARTED = false;
+
+    const DEFAULT_START_SCORE = Number.parseInt(process.env.DEFAULT_START_SCORE, 10);
+    const startScore = Number.isFinite(DEFAULT_START_SCORE) ? DEFAULT_START_SCORE : 1000;
+
+    await Team.updateMany(
+        {},
+        {
+            $set: {
+                score: startScore,
+                currentLevel: 1,
+                attempts: 0,
+                violations: 0,
+                isLocked: false
+            }
+        }
+    );
+
+    console.log('🔁 SYSTEM RESET: GAME STOPPED + ALL TEAMS RESET.');
+    res.json({ status: 'SUCCESS', message: 'GAME RESET', started: IS_GAME_STARTED });
+});
+
 // 5. GET GAME DATA
 app.get('/api/game-data/:teamId', async (req, res) => {
     const { teamId } = req.params;

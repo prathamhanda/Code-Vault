@@ -103,8 +103,8 @@ const generateLevelSet = (variant) => {
                 { id: "9", code: "    return 0;" },
                 { id: "10", code: "}" },
                 // BLUFFS
-                { id: "B1", code: `total_val = ${t.var};` },
-                { id: "B2", code: "if(total_val == 0)" }
+                { id: "B1", code: `total_val = ${t.var}` },
+                { id: "B2", code: "if[total_val == 0]" }
             ],
             correctSequence: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
             swappableGroups: [["3", "4"]],
@@ -129,8 +129,8 @@ const generateLevelSet = (variant) => {
                 { id: "30", code: "    return 0;" },
                 { id: "31", code: "}" },
                 // BLUFFS
-                { id: "B3", code: `if(stream[i] < ${t.limit}) {` },
-                { id: "B4", code: "secure_sum = stream[i];" }
+                { id: "B3", code: `elif(stream[i+1] !< ${t.limit}) {` },
+                { id: "B4", code: "secure_sum = stream[i]," }
             ],
             correctSequence: ["20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"],
             swappableGroups: [["22", "23"]],
@@ -156,8 +156,8 @@ const generateLevelSet = (variant) => {
                 { id: "50", code: "    return 0;" },
                 { id: "51", code: "}" },
                 // BLUFFS
-                { id: "B5", code: "flags = logs[i];" },
-                { id: "B6", code: "if(logs[i] != 0)" }
+                { id: "B5", code: "flags = log[i];" },
+                { id: "B6", code: "if(log[i+1] != 0)" }
             ],
             correctSequence: ["40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51"],
             swappableGroups: [["42", "43"]],
@@ -182,8 +182,8 @@ const generateLevelSet = (variant) => {
                 { id: "70", code: "    for(int i=0; i<4; i++) printf(\"%d\", gps[i]);" },
                 { id: "71", code: "    return 0;" },
                 { id: "72", code: "}" },
-                { id: "B7", code: "gps.reverse();" },
-                { id: "B8", code: "swap(start, end);" }
+                { id: "B7", code: "int temp = gps[end];" },
+                { id: "B8", code: "gps.swap(start, end);" }
             ],
             correctSequence: ["60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "70", "71", "72"],
             swappableGroups: [["62", "63"]],
@@ -207,8 +207,8 @@ const generateLevelSet = (variant) => {
                 { id: "89", code: "    printf(\"%d\", valid);" },
                 { id: "90", code: "    return 0;" },
                 { id: "91", code: "}" },
-                { id: "B9", code: "if(pins[i+1] == pins[i])" },
-                { id: "B10", code: "valid = pins[i];" }
+                { id: "B9", code: "if(pins[i] = pins[i+1])" },
+                { id: "B10", code: "valid = pin[i];" }
             ],
             correctSequence: ["80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90", "91"],
             swappableGroups: [["82", "83"]],
@@ -234,8 +234,9 @@ const generateLevelSet = (variant) => {
                 { id: "111", code: "    printf(\"MOLE: %d\", mole);" },
                 { id: "112", code: "    return 0;" },
                 { id: "113", code: "}" },
-                { id: "B11", code: "if(agents[i] != agents[j])" },
-                { id: "B12", code: "int j = 0;" }
+                { id: "B11", code: "if(agents[i+1] != agents[j])" },
+                { id: "B12", code: "int j = 0;" },
+                { id: "B15", code: "Beware" }
             ],
             correctSequence: ["100", "101", "102", "103", "104", "105", "106", "107", "108", "109", "110", "111", "112", "113"],
             swappableGroups: [["102", "103"]],
@@ -257,8 +258,8 @@ const generateLevelSet = (variant) => {
                 { id: "127", code: "    printf(\"%d\", key);" },
                 { id: "128", code: "    return 0;" },
                 { id: "129", code: "}" },
-                { id: "B13", code: "ptr += 1;" },
-                { id: "B14", code: "key = &ptr;" }
+                { id: "B13", code: "ptr =+ 1;" },
+                { id: "B14", code: "keys = &ptr;" }
             ],
             correctSequence: ["120", "121", "122", "123", "124", "125", "126", "127", "128", "129"],
             swappableGroups: [],

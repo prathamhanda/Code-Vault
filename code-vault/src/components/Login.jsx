@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Terminal, ArrowRight, AlertCircle, ShieldCheck } from "lucide-react";
 import { API_BASE_URL } from "../apiBase";
+import MatrixTicker from "./MatrixTicker";
 
 const Login = () => {
   const [teamId, setTeamId] = useState("");
@@ -48,7 +49,10 @@ const Login = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-black flex items-center justify-center font-mono relative overflow-hidden">
+    <div className="h-screen w-screen bg-white flex items-center justify-center font-mono relative overflow-hidden">
+      {/* ➤ ADDED MATRIX TICKER HERE */}
+      <MatrixTicker />
+
       {/* Background Effects */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-dark-800 via-black to-black opacity-80"></div>
       <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-neon-cyan to-transparent opacity-50"></div>
@@ -61,7 +65,7 @@ const Login = () => {
             <Terminal className="w-8 h-8 text-neon-cyan" />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tighter mb-2">
-            CODE <span className="text-neon-cyan">VAULT</span>
+            CODE <span className="text-neon-cyan">RED</span>
           </h1>
           <p className="text-gray-500 text-xs tracking-widest uppercase">
             Secure Access Terminal v2.0

@@ -17,6 +17,10 @@ const Leaderboard = () => {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPodium, setShowPodium] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+
+  const isAdmin = localStorage.getItem("isAdmin") === "true";
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -34,6 +38,35 @@ const Leaderboard = () => {
     const interval = setInterval(fetchLeaderboard, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleStartOver = async () => {
+    if (!isAdmin) return;
+    const ok = window.confirm(
+      "Start over? This will reset ALL team scores and stop the game.",
+    );
+    if (!ok) return;
+
+    setResetError("");
+    setResetting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/reset-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId: localStorage.getItem("teamId") }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResetError(data.message || "RESET DENIED");
+        return;
+      }
+
+      window.location.href = "/";
+    } catch (e) {
+      setResetError("SERVER UNREACHABLE");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   if (loading)
     return (
@@ -519,6 +552,39 @@ const Leaderboard = () => {
           )}
 
           {/* Footer spacer */}
+          {isAdmin && (
+            <div className="w-full max-w-3xl mx-auto px-2 sm:px-6 pb-10 mt-10">
+              <div className="border border-slate-700/60 bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 shadow-2xl">
+                <div className="text-center mb-4">
+                  <div className="text-xs tracking-[0.35em] text-emerald-300 font-bold">
+                    ADMIN CONTROLS
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Reset the event back to standby.
+                  </div>
+                </div>
+
+                {resetError && (
+                  <div className="text-center text-xs text-red-400 bg-red-500/10 border border-red-500/20 py-2 rounded mb-4">
+                    {resetError}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleStartOver}
+                  disabled={resetting}
+                  className={`w-full py-4 rounded-xl font-black tracking-widest text-sm transition-all duration-300 ${
+                    resetting
+                      ? "bg-slate-800 text-slate-400 cursor-wait"
+                      : "bg-cyan-400 text-black hover:bg-white hover:scale-[1.01] shadow-[0_0_20px_rgba(34,211,238,0.35)]"
+                  }`}
+                >
+                  {resetting ? "RESETTING..." : "START OVER"}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="h-20"></div>
         </div>
       </div>

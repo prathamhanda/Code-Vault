@@ -25,6 +25,10 @@ const WaitingRoom = () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/game-status`);
         const data = await res.json();
+        if (data.eventActive === false) {
+          navigate("/terminated");
+          return;
+        }
         if (data.started) {
           navigate(isAdmin ? "/leaderboard" : "/game");
         }
@@ -35,7 +39,7 @@ const WaitingRoom = () => {
 
     const poller = setInterval(checkStatus, 2000);
     return () => clearInterval(poller);
-  }, [navigate]);
+  }, [navigate, isAdmin]);
 
   const handleStartGame = async () => {
     setStartError("");

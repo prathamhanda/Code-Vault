@@ -69,6 +69,34 @@ const isAdminRequest = (req) => {
     return String(candidate).trim().toLowerCase() === ADMIN_ID;
 };
 
+const resetAllTeams = async () => {
+    const DEFAULT_START_SCORE = Number.parseInt(process.env.DEFAULT_START_SCORE, 10);
+    const startScore = Number.isFinite(DEFAULT_START_SCORE) ? DEFAULT_START_SCORE : 1000;
+
+    const result = await Team.updateMany(
+        {},
+        {
+            $set: {
+                score: startScore,
+                currentLevel: 1,
+                attempts: 0,
+                violations: 0,
+                isLocked: false
+            }
+        }
+    );
+
+    // Mongoose can return different shapes depending on version.
+    const matched = Number.isFinite(result?.matchedCount)
+        ? result.matchedCount
+        : (Number.isFinite(result?.n) ? result.n : undefined);
+    const modified = Number.isFinite(result?.modifiedCount)
+        ? result.modifiedCount
+        : (Number.isFinite(result?.nModified) ? result.nModified : undefined);
+
+    return { startScore, matched, modified };
+};
+
 // --- ROUTES ---
 
 // 1. TEAM LOGIN
@@ -86,7 +114,10 @@ app.post('/api/login', async (req, res) => {
 
 // 2. CHECK GAME STATUS
 app.get('/api/game-status', (req, res) => {
-    res.json({ started: IS_GAME_STARTED });
+    res.json({
+        started: IS_GAME_STARTED,
+        eventActive: IS_EVENT_ACTIVE
+    });
 });
 
 // 3. ADMIN: START GAME
@@ -94,9 +125,24 @@ app.post('/api/admin/start-game', (req, res) => {
     if (!isAdminRequest(req)) {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
+    // Starting the game should also reopen the event if it was ended.
+    IS_EVENT_ACTIVE = true;
     IS_GAME_STARTED = true;
     console.log('🚀 SYSTEM ALERT: GAME HAS STARTED.');
     res.json({ message: 'GAME STARTED' });
+});
+
+// 3b. ADMIN: END GAME (Terminate Sequence)
+app.post('/api/admin/end-game', (req, res) => {
+    if (!isAdminRequest(req)) {
+        return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
+    }
+
+    IS_GAME_STARTED = false;
+    IS_EVENT_ACTIVE = false;
+
+    console.log('🛑 SYSTEM ALERT: EVENT TERMINATED BY ADMIN.');
+    res.json({ status: 'SUCCESS', message: 'EVENT TERMINATED', started: IS_GAME_STARTED, eventActive: IS_EVENT_ACTIVE });
 });
 
 // 4. ADMIN: RESET TEAM
@@ -122,26 +168,48 @@ app.post('/api/admin/reset-game', async (req, res) => {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
 
-    IS_GAME_STARTED = false;
+    try {
+        IS_GAME_STARTED = false;
+        const { startScore, matched, modified } = await resetAllTeams();
 
-    const DEFAULT_START_SCORE = Number.parseInt(process.env.DEFAULT_START_SCORE, 10);
-    const startScore = Number.isFinite(DEFAULT_START_SCORE) ? DEFAULT_START_SCORE : 1000;
+        console.log('🔁 SYSTEM RESET: GAME STOPPED + ALL TEAMS RESET.', { matched, modified, startScore });
+        res.json({
+            status: 'SUCCESS',
+            message: 'GAME RESET',
+            started: IS_GAME_STARTED,
+            startScore,
+            matched,
+            modified
+        });
+    } catch (err) {
+        console.error('❌ RESET GAME ERROR:', err);
+        res.status(500).json({ status: 'FAIL', message: 'RESET FAILED' });
+    }
+});
 
-    await Team.updateMany(
-        {},
-        {
-            $set: {
-                score: startScore,
-                currentLevel: 1,
-                attempts: 0,
-                violations: 0,
-                isLocked: false
-            }
-        }
-    );
+// 4c. ADMIN: RESET (Backward-compatible alias)
+app.post('/api/admin/reset', async (req, res) => {
+    // Some frontends call this legacy route. Keep it as an alias.
+    if (!isAdminRequest(req)) {
+        return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
+    }
 
-    console.log('🔁 SYSTEM RESET: GAME STOPPED + ALL TEAMS RESET.');
-    res.json({ status: 'SUCCESS', message: 'GAME RESET', started: IS_GAME_STARTED });
+    try {
+        IS_GAME_STARTED = false;
+        const { startScore, matched, modified } = await resetAllTeams();
+        console.log('🔁 SYSTEM RESET (alias): GAME STOPPED + ALL TEAMS RESET.', { matched, modified, startScore });
+        res.json({
+            status: 'SUCCESS',
+            message: 'GAME RESET',
+            started: IS_GAME_STARTED,
+            startScore,
+            matched,
+            modified
+        });
+    } catch (err) {
+        console.error('❌ RESET (alias) ERROR:', err);
+        res.status(500).json({ status: 'FAIL', message: 'RESET FAILED' });
+    }
 });
 
 // 5. GET GAME DATA
@@ -331,6 +399,11 @@ app.get('/api/leaderboard', async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: "Leaderboard Error" });
     }
+});
+
+// API 404 (JSON)
+app.use('/api', (req, res) => {
+    res.status(404).json({ message: 'API route not found' });
 });
 
 const PORT = Number.parseInt(process.env.PORT, 10) || 5000;

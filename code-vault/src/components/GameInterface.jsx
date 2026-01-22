@@ -133,6 +133,12 @@ function GameInterface() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/game-status`);
         const data = await res.json();
+        if (data.eventActive === false) {
+          localStorage.removeItem("teamId");
+          localStorage.removeItem("isAdmin");
+          window.location.href = "/terminated";
+          return;
+        }
         if (!data.started) {
           window.location.href = "/waiting-room";
         } else {
@@ -144,13 +150,37 @@ function GameInterface() {
     };
     checkServer();
 
+    // If admin resets the game mid-run, boot players back to login.
+    const poller = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/game-status`);
+        const data = await res.json();
+        if (data.eventActive === false) {
+          localStorage.removeItem("teamId");
+          localStorage.removeItem("isAdmin");
+          window.location.href = "/terminated";
+          return;
+        }
+        if (!data.started) {
+          localStorage.removeItem("teamId");
+          localStorage.removeItem("isAdmin");
+          window.location.href = "/";
+        }
+      } catch {
+        // Ignore transient network errors.
+      }
+    }, 2000);
+
     // Block Back Button
     window.history.pushState(null, null, window.location.href);
     const handlePopState = () =>
       window.history.pushState(null, null, window.location.href);
     window.addEventListener("popstate", handlePopState);
 
-    return () => window.removeEventListener("popstate", handlePopState);
+    return () => {
+      clearInterval(poller);
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, []);
 
   // Load Level Data

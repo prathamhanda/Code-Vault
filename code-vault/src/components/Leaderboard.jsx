@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Trophy,
   ShieldAlert,
@@ -14,6 +15,7 @@ import {
 import { API_BASE_URL } from "../apiBase";
 
 const Leaderboard = () => {
+  const navigate = useNavigate();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPodium, setShowPodium] = useState(false);
@@ -22,6 +24,8 @@ const Leaderboard = () => {
   const isAdmin = localStorage.getItem("isAdmin") === "true";
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState("");
+  const [ending, setEnding] = useState(false);
+  const [endError, setEndError] = useState("");
 
   // ➤ FIX 2: Define the missing handleStartOver function
   const handleStartOver = async () => {
@@ -31,13 +35,73 @@ const Leaderboard = () => {
       return;
 
     setResetting(true);
+    setResetError("");
     try {
-      await fetch(`${API_BASE_URL}/api/admin/reset`, { method: "POST" });
-      window.location.reload();
+      const adminId = localStorage.getItem("teamId");
+      const res = await fetch(`${API_BASE_URL}/api/admin/reset-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = {};
+      }
+      if (!res.ok) {
+        throw new Error(
+          data.message ||
+            `Reset Failed (${res.status}${res.statusText ? ` ${res.statusText}` : ""})`,
+        );
+      }
+
+      // Hard reset the client session and return to login.
+      localStorage.removeItem("teamId");
+      localStorage.removeItem("isAdmin");
+      navigate("/");
     } catch (e) {
-      setResetError("Reset Failed");
+      setResetError(e?.message || "Reset Failed");
     } finally {
       setResetting(false);
+    }
+  };
+
+  const handleEndGame = async () => {
+    if (!window.confirm("WARNING: This will TERMINATE the event for all participants. Continue?")) {
+      return;
+    }
+
+    setEnding(true);
+    setEndError("");
+    try {
+      const adminId = localStorage.getItem("teamId");
+      const res = await fetch(`${API_BASE_URL}/api/admin/end-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = {};
+      }
+      if (!res.ok) {
+        throw new Error(
+          data.message ||
+            `End Game Failed (${res.status}${res.statusText ? ` ${res.statusText}` : ""})`,
+        );
+      }
+      // Keep admin on leaderboard; participants will auto-redirect.
+    } catch (e) {
+      setEndError(e?.message || "End Game Failed");
+    } finally {
+      setEnding(false);
     }
   };
 
@@ -564,17 +628,37 @@ const Leaderboard = () => {
                   </div>
                 )}
 
-                <button
-                  onClick={handleStartOver}
-                  disabled={resetting}
-                  className={`w-full py-4 rounded-xl font-black tracking-widest text-sm transition-all duration-300 ${
-                    resetting
-                      ? "bg-slate-800 text-slate-400 cursor-wait"
-                      : "bg-cyan-400 text-black hover:bg-white hover:scale-[1.01] shadow-[0_0_20px_rgba(34,211,238,0.35)]"
-                  }`}
-                >
-                  {resetting ? "RESETTING..." : "START OVER"}
-                </button>
+                {endError && (
+                  <div className="text-center text-xs text-red-400 bg-red-500/10 border border-red-500/20 py-2 rounded mb-4">
+                    {endError}
+                  </div>
+                )}
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleStartOver}
+                    disabled={resetting || ending}
+                    className={`flex-1 py-4 rounded-xl font-black tracking-widest text-sm transition-all duration-300 ${
+                      resetting || ending
+                        ? "bg-slate-800 text-slate-400 cursor-wait"
+                        : "bg-cyan-400 text-black hover:bg-white hover:scale-[1.01] shadow-[0_0_20px_rgba(34,211,238,0.35)]"
+                    }`}
+                  >
+                    {resetting ? "RESETTING..." : "START OVER"}
+                  </button>
+
+                  <button
+                    onClick={handleEndGame}
+                    disabled={ending || resetting}
+                    className={`flex-1 py-4 rounded-xl font-black tracking-widest text-sm transition-all duration-300 ${
+                      ending || resetting
+                        ? "bg-slate-800 text-slate-400 cursor-wait"
+                        : "bg-red-500 text-black hover:bg-white hover:scale-[1.01] shadow-[0_0_20px_rgba(239,68,68,0.35)]"
+                    }`}
+                  >
+                    {ending ? "ENDING..." : "END GAME"}
+                  </button>
+                </div>
               </div>
             </div>
           )}

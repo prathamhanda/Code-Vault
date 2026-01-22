@@ -4,6 +4,7 @@ import Login from "./components/Login"; // ➤ FIX: Use the Login component I ga
 import GameInterface from "./components/GameInterface";
 import WaitingRoom from "./components/WaitingRoom";
 import Leaderboard from "./components/Leaderboard";
+import Terminated from "./components/Terminated";
 
 function App() {
   return (
@@ -20,6 +21,9 @@ function App() {
 
         {/* 4. Leaderboard (Admin/Projector View) */}
         <Route path="/leaderboard" element={<Leaderboard />} />
+
+        {/* 5. Terminated Screen (Admin ended the event) */}
+        <Route path="/terminated" element={<Terminated />} />
       </Routes>
     </Router>
   );

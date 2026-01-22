@@ -18,15 +18,42 @@ const Leaderboard = () => {
   const [loading, setLoading] = useState(true);
   const [showPodium, setShowPodium] = useState(false);
 
+  // ➤ FIX 1: Define the missing Admin state variables to prevent crash
+  const isAdmin = localStorage.getItem("isAdmin") === "true";
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+
+  // ➤ FIX 2: Define the missing handleStartOver function
+  const handleStartOver = async () => {
+    if (
+      !window.confirm("WARNING: This will RESET score for ALL teams. Continue?")
+    )
+      return;
+
+    setResetting(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/admin/reset`, { method: "POST" });
+      window.location.reload();
+    } catch (e) {
+      setResetError("Reset Failed");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/leaderboard`);
         const data = await res.json();
-        setTeams(data);
+        // Ensure data is an array before setting it to avoid map errors
+        if (Array.isArray(data)) {
+          setTeams(data);
+        }
         setLoading(false);
       } catch (e) {
         console.error("Leaderboard Offline");
+        setLoading(false); // ➤ FIX 3: Stop loading even if error occurs
       }
     };
 
@@ -393,18 +420,18 @@ const Leaderboard = () => {
                   <div
                     key={team.teamId}
                     className={`
-                    group relative bg-slate-900/40 backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl
-                    ${team.isLocked ? "opacity-60 border-red-500/30" : "border-slate-700/50 hover:border-cyan-500/50"}
-                    ${isTop3 ? "bg-gradient-to-r from-slate-800/60 to-slate-900/40" : ""}
-                  `}
+                      group relative bg-slate-900/40 backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl
+                      ${team.isLocked ? "opacity-60 border-red-500/30" : "border-slate-700/50 hover:border-cyan-500/50"}
+                      ${isTop3 ? "bg-gradient-to-r from-slate-800/60 to-slate-900/40" : ""}
+                    `}
                   >
                     <div className="flex items-center gap-4">
                       {/* Rank */}
                       <div
                         className={`
-                      text-3xl font-black min-w-[60px] text-center
-                      ${index === 0 ? "text-yellow-400" : index === 1 ? "text-slate-300" : index === 2 ? "text-orange-400" : "text-gray-500"}
-                    `}
+                        text-3xl font-black min-w-[60px] text-center
+                        ${index === 0 ? "text-yellow-400" : index === 1 ? "text-slate-300" : index === 2 ? "text-orange-400" : "text-gray-500"}
+                      `}
                       >
                         #{index + 1}
                       </div>
@@ -412,17 +439,17 @@ const Leaderboard = () => {
                       {/* Avatar */}
                       <div
                         className={`
-                      w-14 h-14 rounded-full flex items-center justify-center font-black text-xl shadow-lg flex-shrink-0
-                      ${
-                        index === 0
-                          ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-slate-900"
-                          : index === 1
-                            ? "bg-gradient-to-br from-slate-400 to-slate-600 text-white"
-                            : index === 2
-                              ? "bg-gradient-to-br from-orange-400 to-orange-600 text-white"
-                              : "bg-slate-700 text-gray-300"
-                      }
-                    `}
+                        w-14 h-14 rounded-full flex items-center justify-center font-black text-xl shadow-lg flex-shrink-0
+                        ${
+                          index === 0
+                            ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-slate-900"
+                            : index === 1
+                              ? "bg-gradient-to-br from-slate-400 to-slate-600 text-white"
+                              : index === 2
+                                ? "bg-gradient-to-br from-orange-400 to-orange-600 text-white"
+                                : "bg-slate-700 text-gray-300"
+                        }
+                      `}
                       >
                         {team.teamId.charAt(0).toUpperCase()}
                       </div>
@@ -488,9 +515,9 @@ const Leaderboard = () => {
                       <div className="text-right">
                         <div
                           className={`
-                        text-3xl font-black tabular-nums
-                        ${isTop3 ? "text-white" : "text-gray-400"}
-                      `}
+                          text-3xl font-black tabular-nums
+                          ${isTop3 ? "text-white" : "text-gray-400"}
+                        `}
                         >
                           {team.score.toLocaleString()}
                         </div>

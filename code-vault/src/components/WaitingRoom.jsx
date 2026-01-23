@@ -23,11 +23,20 @@ const WaitingRoom = () => {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/game-status`);
+        let url = `${API_BASE_URL}/api/game-status`;
+        if (isAdmin) {
+          url += `?adminId=${encodeURIComponent(localStorage.getItem("teamId") || "")}`;
+        }
+        const res = await fetch(url);
         const data = await res.json();
         if (data.eventActive === false) {
-          navigate("/terminated");
-          return;
+          if (isAdmin) {
+            // Stay in waiting room, show admin controls
+            return;
+          } else {
+            navigate("/terminated");
+            return;
+          }
         }
         if (data.started) {
           navigate(isAdmin ? "/leaderboard" : "/game");

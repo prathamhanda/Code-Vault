@@ -102,21 +102,26 @@ const resetAllTeams = async () => {
 // 1. TEAM LOGIN
 app.post('/api/login', async (req, res) => {
     const { teamId } = req.body;
-    if (!IS_EVENT_ACTIVE) return res.status(403).json({ message: 'EVENT CLOSED' });
-
     const sanitizedId = teamId.trim().toLowerCase().replace(/\s+/g, '-');
+    // Admin login always allowed
+    if (sanitizedId === ADMIN_ID) {
+        return res.json({ status: 'SUCCESS', teamId: ADMIN_ID, role: 'admin' });
+    }
+    if (!IS_EVENT_ACTIVE) return res.status(403).json({ status: 'FAIL', message: 'EVENT CLOSED' });
     const team = await Team.findOne({ teamId: sanitizedId });
-
     if (!team) return res.status(401).json({ status: 'FAIL', message: 'INVALID TEAM ID' });
-
-    res.json({ status: 'SUCCESS', teamId: sanitizedId });
+    res.json({ status: 'SUCCESS', teamId: sanitizedId, role: 'player' });
 });
 
 // 2. CHECK GAME STATUS
 app.get('/api/game-status', (req, res) => {
+    // Allow role-specific info
+    const adminId = (req.query.adminId || req.headers['x-admin-id'] || '').toLowerCase();
+    const isAdmin = adminId === ADMIN_ID;
     res.json({
         started: IS_GAME_STARTED,
-        eventActive: IS_EVENT_ACTIVE
+        eventActive: IS_EVENT_ACTIVE,
+        role: isAdmin ? 'admin' : 'player'
     });
 });
 
@@ -382,6 +387,12 @@ app.post('/api/skip-terminal', async (req, res) => {
 
 app.get('/api/leaderboard', async (req, res) => {
     try {
+        // Admin exception: allow access if adminId is provided and matches
+        const adminId = (req.query.adminId || req.headers['x-admin-id'] || '').toLowerCase();
+        const isAdmin = adminId === ADMIN_ID;
+        if (!IS_EVENT_ACTIVE && !isAdmin) {
+            return res.status(403).json({ message: 'EVENT CLOSED' });
+        }
         // Fetch specific fields only
         const teams = await Team.find({}, 'teamId score currentLevel violations isLocked attempts');
 

@@ -108,9 +108,14 @@ const Leaderboard = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/leaderboard`);
+        let url = `${API_BASE_URL}/api/leaderboard`;
+        const isAdmin = localStorage.getItem("isAdmin") === "true";
+        if (isAdmin) {
+          const adminId = localStorage.getItem("teamId");
+          url += `?adminId=${encodeURIComponent(adminId)}`;
+        }
+        const res = await fetch(url);
         const data = await res.json();
-        // Ensure data is an array before setting it to avoid map errors
         if (Array.isArray(data)) {
           setTeams(data);
         }

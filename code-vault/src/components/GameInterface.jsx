@@ -122,9 +122,18 @@ function GameInterface() {
 
   // --- 1. INITIALIZATION & SECURITY CHECKS ---
   useEffect(() => {
-    // Admin accounts should not enter gameplay
+    // Admin accounts should not enter gameplay if event is active or game is started
     if (localStorage.getItem("isAdmin") === "true") {
-      window.location.href = "/leaderboard";
+      // Check if event is closed, then send admin to waiting room
+      fetch(`${API_BASE_URL}/api/game-status?adminId=${encodeURIComponent(localStorage.getItem("teamId") || "")}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.eventActive === false) {
+            window.location.href = "/waiting-room";
+          } else {
+            window.location.href = "/leaderboard";
+          }
+        });
       return;
     }
 

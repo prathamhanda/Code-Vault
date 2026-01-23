@@ -14,15 +14,7 @@ const Login = () => {
 
     const input = teamId.trim();
 
-    // ➤ 1. THE BACKDOOR: Check for "Yuvraj"
-    if (input.toLowerCase() === "yuvraj") {
-      localStorage.setItem("teamId", "yuvraj");
-      localStorage.setItem("isAdmin", "true");
-      window.location.href = "/waiting-room";
-      return;
-    }
-
-    // ➤ 2. STANDARD LOGIN LOGIC
+    // Remove any previous admin flag
     localStorage.removeItem("isAdmin");
     setLoading(true);
 
@@ -37,6 +29,9 @@ const Login = () => {
 
       if (data.status === "SUCCESS") {
         localStorage.setItem("teamId", data.teamId);
+        if (data.role === "admin") {
+          localStorage.setItem("isAdmin", "true");
+        }
         window.location.href = "/waiting-room";
       } else {
         setError(data.message || "ACCESS DENIED");

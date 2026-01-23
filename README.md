@@ -27,6 +27,8 @@ Each level has two phases:
 
 A live **leaderboard view** updates every 2 seconds, making it ideal for projector displays during hackathons, CTFs, and campus events.
 
+> Use the username <code>"mona lisa"</code> to test the website!
+
 ---
 ![Node.js](https://img.shields.io/badge/Node.js-18+-3c3c3c?logo=node.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-3c3c3c?logo=react&logoColor=61DAFB)

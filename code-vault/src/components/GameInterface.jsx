@@ -25,20 +25,17 @@ import {
 } from "lucide-react";
 import { API_BASE_URL } from "../apiBase";
 
-// --- HELPER: Define outside to prevent re-creation loops ---
 const generateRows = (count) => {
   const rows = {};
   for (let i = 0; i < count; i++) rows[`row-${i}`] = [];
   return rows;
 };
 
-// --- MODAL COMPONENT ---
 const Modal = ({ type, message, onClose }) => {
   if (!type) return null;
   const isSuccess = type === "success";
   const isLocked = type === "locked";
 
-  // LOCK SCREEN
   if (isLocked) {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-md">
@@ -56,7 +53,6 @@ const Modal = ({ type, message, onClose }) => {
     );
   }
 
-  // STANDARD MODAL
   let borderColor = isSuccess ? "border-neon-green" : "border-red-500";
   let icon = isSuccess ? (
     <CheckCircle className="w-8 h-8 text-neon-green" />
@@ -89,13 +85,9 @@ const Modal = ({ type, message, onClose }) => {
 };
 
 function GameInterface() {
-  // --- STATE MANAGEMENT ---
-  const [isLoading, setIsLoading] = useState(true); // Prevents black screen
+  const [isLoading, setIsLoading] = useState(true);
   const [bankItems, setBankItems] = useState([]);
-
-  // Initialize with 15 rows lazy loaded
   const [workspaceRows, setWorkspaceRows] = useState(() => generateRows(15));
-
   const [activeId, setActiveId] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
   const [currentScore, setCurrentScore] = useState(0);
@@ -105,14 +97,12 @@ function GameInterface() {
   const [modal, setModal] = useState({ type: null, message: "" });
   const [teamName, setTeamName] = useState("");
 
-  // SECURITY STATE
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isLevelLocked, setIsLevelLocked] = useState(false);
 
-  // DRAG SENSORS
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
@@ -120,26 +110,17 @@ function GameInterface() {
     }),
   );
 
-  // --- 1. INITIALIZATION & SECURITY CHECKS ---
   useEffect(() => {
-    // Admin accounts should not enter gameplay
     if (localStorage.getItem("isAdmin") === "true") {
       window.location.href = "/leaderboard";
       return;
     }
 
-    // Check Server Status
     const checkServer = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/game-status`);
         const data = await res.json();
-        if (data.eventActive === false) {
-          localStorage.removeItem("teamId");
-          localStorage.removeItem("isAdmin");
-          window.location.href = "/terminated";
-          return;
-        }
-        if (!data.started) {
+        if (data.status === "WAITING") {
           window.location.href = "/waiting-room";
         } else {
           setIsGameStarted(true);
@@ -150,45 +131,18 @@ function GameInterface() {
     };
     checkServer();
 
-    // If admin resets the game mid-run, boot players back to login.
-    const poller = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/game-status`);
-        const data = await res.json();
-        if (data.eventActive === false) {
-          localStorage.removeItem("teamId");
-          localStorage.removeItem("isAdmin");
-          window.location.href = "/terminated";
-          return;
-        }
-        if (!data.started) {
-          localStorage.removeItem("teamId");
-          localStorage.removeItem("isAdmin");
-          window.location.href = "/";
-        }
-      } catch {
-        // Ignore transient network errors.
-      }
-    }, 2000);
-
-    // Block Back Button
     window.history.pushState(null, null, window.location.href);
     const handlePopState = () =>
       window.history.pushState(null, null, window.location.href);
     window.addEventListener("popstate", handlePopState);
 
-    return () => {
-      clearInterval(poller);
-      window.removeEventListener("popstate", handlePopState);
-    };
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  // Load Level Data
   useEffect(() => {
     loadLevel();
   }, []);
 
-  // --- 2. DATA LOADING LOGIC ---
   const loadLevel = async () => {
     const teamId = localStorage.getItem("teamId");
     if (!teamId) return;
@@ -197,12 +151,9 @@ function GameInterface() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/game-data/${teamId}`,
-      );
+      const response = await fetch(`${API_BASE_URL}/api/game-data/${teamId}`);
       const data = await response.json();
 
-      // Check for Permanent Lock
       if (data.status === "LOCKED") {
         setIsLevelLocked(true);
         setModal({
@@ -216,14 +167,11 @@ function GameInterface() {
 
       if (data.status === "SUCCESS") {
         setBankItems(data.snippets);
-        setWorkspaceRows(generateRows(15)); // Reset to clean state
+        setWorkspaceRows(generateRows(15));
         setCurrentScore(data.score);
         setCurrentLevel(data.level);
-
-        // Restore Security State
         setViolationCount(data.violations || 0);
         if (data.isLocked) setIsLevelLocked(true);
-
         setIsTerminalActive(false);
         setTerminalAttempts(0);
       } else if (data.status === "COMPLETE") {
@@ -232,11 +180,10 @@ function GameInterface() {
     } catch (error) {
       console.error("Failed to load level:", error);
     } finally {
-      setIsLoading(false); // Ensure loading stops
+      setIsLoading(false);
     }
   };
 
-  // --- 3. WORKSPACE LOGIC ---
   const handleAddLine = () => {
     setWorkspaceRows((prev) => {
       const nextIndex = Object.keys(prev).length;
@@ -254,7 +201,6 @@ function GameInterface() {
     if (allItems.length === 0) return;
 
     setBankItems((prev) => [...prev, ...allItems]);
-    // Maintain current row count when clearing
     const rowCount = Object.keys(workspaceRows).length;
     setWorkspaceRows(generateRows(rowCount));
   };
@@ -299,11 +245,7 @@ function GameInterface() {
     }
   };
 
-  // --- 4. TERMINAL LOGIC ---
   const handleTerminalSubmit = async (userOutput) => {
-    if (terminalAttempts >= 1) return;
-    setTerminalAttempts(1);
-
     const teamId = localStorage.getItem("teamId");
     const response = await fetch(`${API_BASE_URL}/api/submit-terminal`, {
       method: "POST",
@@ -322,7 +264,7 @@ function GameInterface() {
     } else {
       setModal({
         type: "error",
-        message: "OUTPUT INCORRECT (-200). ADVANCING...",
+        message: data.message || "OUTPUT INCORRECT (-200). ADVANCING...",
       });
     }
 
@@ -342,9 +284,14 @@ function GameInterface() {
     loadLevel();
   };
 
-  // --- 5. SECURITY & FULLSCREEN HANDLERS ---
+  // --- FOCUS WARDEN (ANTI-CHEAT) ---
   const handleViolationTrigger = async () => {
     if (isLevelLocked) return;
+
+    // LOGIC:
+    // Count 0 -> 1: Warning
+    // Count 1 -> 2: Penalty (-200)
+    // Count 2 -> 3: Termination (Lock)
 
     const nextCount = violationCount + 1;
     setViolationCount(nextCount);
@@ -365,7 +312,7 @@ function GameInterface() {
       if (data.isLocked || data.violations >= 3) {
         setTimeout(() => {
           setShowOverlay(false);
-          handleCodeSubmit(); // Auto submit then lock
+          handleCodeSubmit(); // Force submit -> Fail -> Lock
         }, 3000);
       }
     } catch (err) {
@@ -377,14 +324,18 @@ function GameInterface() {
     const handleChange = () => {
       if (!document.fullscreenElement) {
         setIsFullScreen(false);
-        if (isGameStarted) handleViolationTrigger();
+        if (isGameStarted && !isLevelLocked) {
+          handleViolationTrigger();
+        }
       } else {
         setIsFullScreen(true);
       }
     };
 
     const handleVisibility = () => {
-      if (document.hidden && isGameStarted) handleViolationTrigger();
+      if (document.hidden && isGameStarted && !isLevelLocked) {
+        handleViolationTrigger();
+      }
     };
 
     document.addEventListener("fullscreenchange", handleChange);
@@ -409,7 +360,6 @@ function GameInterface() {
     }
   };
 
-  // --- 6. DRAG & DROP HANDLERS ---
   const findContainer = (id) => {
     if (bankItems.find((i) => i.id === id)) return "bank-area";
     const rowKey = Object.keys(workspaceRows).find((key) =>
@@ -446,7 +396,6 @@ function GameInterface() {
     if (!activeContainer || !overContainer || activeContainer === overContainer)
       return;
 
-    // Bank -> Row
     if (activeContainer === "bank-area" && overContainer.startsWith("row-")) {
       const item = bankItems.find((i) => i.id === active.id);
       if (!item) return;
@@ -457,7 +406,6 @@ function GameInterface() {
       }));
     }
 
-    // Row -> Row
     if (
       activeContainer.startsWith("row-") &&
       overContainer.startsWith("row-")
@@ -540,9 +488,6 @@ function GameInterface() {
     }
   };
 
-  // --- 7. RENDER LOGIC ---
-
-  // A. Loading State (Prevents Black Screen)
   if (isLoading || !isGameStarted) {
     return (
       <div className="bg-black h-screen w-screen text-white flex flex-col items-center justify-center font-mono">
@@ -556,7 +501,6 @@ function GameInterface() {
     );
   }
 
-  // B. Fullscreen Gate
   if (!isFullScreen && violationCount === 0 && !isLevelLocked) {
     return (
       <div className="h-screen w-screen bg-black flex flex-col items-center justify-center text-white z-50 font-mono">
@@ -578,13 +522,13 @@ function GameInterface() {
     );
   }
 
-  // C. Violation Overlay
   if (showOverlay) {
-    let title = "SECURITY WARNING",
-      color = "text-yellow-500",
-      border = "border-yellow-500",
-      Icon = AlertTriangle,
-      msg = "Focus lost. This is your first warning.";
+    let title = "SECURITY WARNING";
+    let color = "text-yellow-500";
+    let border = "border-yellow-500";
+    let Icon = AlertTriangle;
+    let msg = "Focus lost. This is your first warning.";
+
     if (violationCount === 2) {
       title = "PENALTY APPLIED";
       color = "text-orange-500";
@@ -628,7 +572,6 @@ function GameInterface() {
     );
   }
 
-  // D. Main Game Interface
   return (
     <DndContext
       sensors={sensors}
@@ -669,7 +612,6 @@ function GameInterface() {
               disabled={isLevelLocked}
             />
 
-            {/* Skip Terminal Button (Only when terminal is active) */}
             {isTerminalActive && (
               <button
                 onClick={handleSkipTerminal}
@@ -681,7 +623,7 @@ function GameInterface() {
           </div>
 
           <div className="w-1/5 min-w-[200px]">
-            <LevelMap currentLevel={currentLevel} totalLevels={7} />
+            <LevelMap currentLevel={currentLevel} totalLevels={10} />
           </div>
         </div>
 

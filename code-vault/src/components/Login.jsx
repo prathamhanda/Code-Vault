@@ -1,10 +1,17 @@
 import React, { useState } from "react";
-import { Terminal, ArrowRight, AlertCircle, ShieldCheck } from "lucide-react";
+import {
+  Terminal,
+  ArrowRight,
+  AlertCircle,
+  ShieldCheck,
+  Lock,
+} from "lucide-react";
 import { API_BASE_URL } from "../apiBase";
 import MatrixTicker from "./MatrixTicker";
 
 const Login = () => {
   const [teamId, setTeamId] = useState("");
+  const [pin, setPin] = useState(""); // ➤ NEW: PIN State
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -12,7 +19,8 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    const input = teamId.trim();
+    const inputId = teamId.trim();
+    const inputPin = pin.trim();
 
     // Remove any previous admin flag
     localStorage.removeItem("isAdmin");
@@ -22,7 +30,8 @@ const Login = () => {
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId: input }),
+        // ➤ CRITICAL: Sending both ID and PIN
+        body: JSON.stringify({ teamId: inputId, pin: inputPin }),
       });
 
       const data = await res.json();
@@ -45,7 +54,7 @@ const Login = () => {
 
   return (
     <div className="h-screen w-screen bg-white flex items-center justify-center font-mono relative overflow-hidden">
-      {/* ➤ ADDED MATRIX TICKER HERE */}
+      {/* Matrix Ticker Background */}
       <MatrixTicker />
 
       {/* Background Effects */}
@@ -69,9 +78,10 @@ const Login = () => {
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-6">
+          {/* TEAM ID INPUT */}
           <div className="space-y-2">
-            <label className="text-xs text-neon-green font-bold tracking-widest ml-1">
-              AGENT IDENTIFIER
+            <label className="text-xs text-neon-green font-bold tracking-widest ml-1 flex items-center gap-2">
+              <ShieldCheck className="w-3 h-3" /> AGENT IDENTIFIER
             </label>
             <input
               type="text"
@@ -83,6 +93,22 @@ const Login = () => {
             />
           </div>
 
+          {/* ➤ NEW: PIN INPUT */}
+          <div className="space-y-2">
+            <label className="text-xs text-neon-green font-bold tracking-widest ml-1 flex items-center gap-2">
+              <Lock className="w-3 h-3" /> ACCESS PIN
+            </label>
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              maxLength={4}
+              placeholder="••••"
+              className="w-full bg-black/50 border border-gray-700 text-white px-4 py-4 rounded-lg focus:outline-none focus:border-neon-cyan focus:shadow-[0_0_20px_rgba(0,255,255,0.2)] transition-all text-center text-2xl tracking-[0.5em] placeholder:text-gray-700 placeholder:tracking-normal placeholder:text-sm"
+            />
+          </div>
+
+          {/* Error Message */}
           {error && (
             <div className="flex items-center justify-center gap-2 text-red-500 text-xs font-bold animate-pulse bg-red-500/10 py-2 rounded border border-red-500/20">
               <AlertCircle className="w-3 h-3" />
@@ -90,9 +116,10 @@ const Login = () => {
             </div>
           )}
 
+          {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || !teamId}
+            disabled={loading || !teamId || !pin}
             className={`
               w-full py-4 rounded-lg font-black tracking-widest text-sm flex items-center justify-center gap-2 transition-all duration-300
               ${

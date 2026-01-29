@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 
 const TeamSchema = new mongoose.Schema({
     teamId: { type: String, required: true, unique: true },
+    pin: { type: String, required: true }, // <--- ADD THIS LINE
     score: { type: Number, default: 0 },
     currentLevel: { type: Number, default: 1 },
+    variant: { type: Number, default: 0 },
+    violations: { type: Number, default: 0 },
     attempts: { type: Number, default: 0 },
-
-    // ➤ NEW SECURITY FIELDS
-    violations: { type: Number, default: 0 }, // 0, 1, 2, 3
-    isLocked: { type: Boolean, default: false } // Permanent Lock
+    isLocked: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Team', TeamSchema);

@@ -22,21 +22,7 @@ const Login = () => {
     const inputId = teamId.trim();
     const inputPin = pin.trim();
 
-    // ➤ 1. THE BACKDOOR: Check for "Yuvraj" (Admin Bypass)
-    if (inputId.toLowerCase() === "yuvraj") {
-      localStorage.setItem("teamId", "yuvraj");
-      localStorage.setItem("isAdmin", "true");
-      window.location.href = "/waiting-room";
-      return;
-    }
-
-    // ➤ 2. VALIDATION
-    if (!inputId || !inputPin) {
-      setError("ID AND PIN REQUIRED");
-      return;
-    }
-
-    // ➤ 3. STANDARD LOGIN LOGIC
+    // Remove any previous admin flag
     localStorage.removeItem("isAdmin");
     setLoading(true);
 
@@ -52,6 +38,9 @@ const Login = () => {
 
       if (data.status === "SUCCESS") {
         localStorage.setItem("teamId", data.teamId);
+        if (data.role === "admin") {
+          localStorage.setItem("isAdmin", "true");
+        }
         window.location.href = "/waiting-room";
       } else {
         setError(data.message || "ACCESS DENIED");

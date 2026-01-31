@@ -8,12 +8,14 @@ import {
 } from "lucide-react";
 import { API_BASE_URL } from "../apiBase";
 import MatrixTicker from "./MatrixTicker";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [teamId, setTeamId] = useState("");
-  const [pin, setPin] = useState(""); // ➤ NEW: PIN State
+  const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,15 +24,17 @@ const Login = () => {
     const inputId = teamId.trim();
     const inputPin = pin.trim();
 
-    // Remove any previous admin flag
-    localStorage.removeItem("isAdmin");
+    if (!inputId || !inputPin) {
+      setError("ID AND PIN REQUIRED");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // ➤ CRITICAL: Sending both ID and PIN
         body: JSON.stringify({ teamId: inputId, pin: inputPin }),
       });
 
@@ -38,12 +42,18 @@ const Login = () => {
 
       if (data.status === "SUCCESS") {
         localStorage.setItem("teamId", data.teamId);
-        if (data.role === "admin") {
-          localStorage.setItem("isAdmin", "true");
+
+        // ➤ SPECIAL LOGIC FOR YUVRAJ
+        if (data.teamId === "yuvraj") {
+          localStorage.setItem("isAdmin", "true"); // Enable Admin features
+          navigate("/leaderboard"); // ➤ Redirect YOU to the Admin/Leaderboard screen
+        } else {
+          localStorage.removeItem("isAdmin"); // Ensure normal teams are not admins
+          navigate("/waiting-room"); // ➤ Redirect TEAMS to the Waiting Room
         }
-        window.location.href = "/waiting-room";
       } else {
         setError(data.message || "ACCESS DENIED");
+        setPin("");
       }
     } catch (err) {
       setError("SERVER UNREACHABLE");
@@ -54,16 +64,11 @@ const Login = () => {
 
   return (
     <div className="h-screen w-screen bg-white flex items-center justify-center font-mono relative overflow-hidden">
-      {/* Matrix Ticker Background */}
       <MatrixTicker />
-
-      {/* Background Effects */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-dark-800 via-black to-black opacity-80"></div>
       <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-neon-cyan to-transparent opacity-50"></div>
 
-      {/* Login Card */}
       <div className="z-10 w-full max-w-md p-8 bg-dark-900/50 backdrop-blur-xl border border-dark-700 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-        {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-dark-800 border border-dark-700 mb-4 shadow-[0_0_15px_rgba(0,255,255,0.1)]">
             <Terminal className="w-8 h-8 text-neon-cyan" />
@@ -76,9 +81,7 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleLogin} className="space-y-6">
-          {/* TEAM ID INPUT */}
           <div className="space-y-2">
             <label className="text-xs text-neon-green font-bold tracking-widest ml-1 flex items-center gap-2">
               <ShieldCheck className="w-3 h-3" /> AGENT IDENTIFIER
@@ -93,7 +96,6 @@ const Login = () => {
             />
           </div>
 
-          {/* ➤ NEW: PIN INPUT */}
           <div className="space-y-2">
             <label className="text-xs text-neon-green font-bold tracking-widest ml-1 flex items-center gap-2">
               <Lock className="w-3 h-3" /> ACCESS PIN
@@ -108,7 +110,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Error Message */}
           {error && (
             <div className="flex items-center justify-center gap-2 text-red-500 text-xs font-bold animate-pulse bg-red-500/10 py-2 rounded border border-red-500/20">
               <AlertCircle className="w-3 h-3" />
@@ -116,10 +117,9 @@ const Login = () => {
             </div>
           )}
 
-          {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || !teamId || !pin}
+            disabled={loading || !teamId}
             className={`
               w-full py-4 rounded-lg font-black tracking-widest text-sm flex items-center justify-center gap-2 transition-all duration-300
               ${
@@ -139,7 +139,6 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Footer */}
         <div className="mt-8 flex justify-center text-[10px] text-gray-600 gap-4">
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3 h-3" /> ENCRYPTED

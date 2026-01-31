@@ -8,7 +8,8 @@ const TeamSchema = new mongoose.Schema({
     variant: { type: Number, default: 0 },
     violations: { type: Number, default: 0 },
     attempts: { type: Number, default: 0 },
-    isLocked: { type: Boolean, default: false }
+    isLocked: { type: Boolean, default: false },
+    isAdmin: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Team', TeamSchema);

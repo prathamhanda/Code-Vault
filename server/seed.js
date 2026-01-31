@@ -306,7 +306,8 @@ const TEAMS_DATA = [
     { teamId: "liberty", index: 22 }, { teamId: "melancholia", index: 23 },
     { teamId: "venus", index: 24 }, { teamId: "napoleon", index: 25 },
     { teamId: "salome", index: 26 }, { teamId: "flora", index: 27 },
-    { teamId: "the-dream", index: 28 }, { teamId: "arnolfini", index: 29 }
+    { teamId: "the-dream", index: 28 }, { teamId: "arnolfini", index: 29 },
+    { teamId: "yuvraj", index: 30 }
 ];
 
 const seedDB = async () => {
@@ -315,15 +316,20 @@ const seedDB = async () => {
         await Team.deleteMany({});
 
         // 1. Generate Teams with PINs
-        const teamsWithPins = TEAMS_DATA.map(t => ({
-            teamId: t.teamId,
-            pin: Math.floor(1000 + Math.random() * 9000).toString(),
-            score: 1000,
-            currentLevel: 1,
-            variant: t.index % 8,
-            violations: 0,
-            isLocked: false
-        }));
+        const teamsWithPins = TEAMS_DATA.map(t => {
+            const isYuvraj = t.teamId === 'yuvraj';
+
+            return {
+                teamId: t.teamId,
+                pin: isYuvraj ? '2027' : Math.floor(1000 + Math.random() * 9000).toString(),
+                score: isYuvraj ? 0 : 1000,
+                currentLevel: 1,
+                variant: t.index % 8,
+                violations: 0,
+                isLocked: false,
+                isAdmin: isYuvraj
+            };
+        });
 
         await Team.insertMany(teamsWithPins);
 

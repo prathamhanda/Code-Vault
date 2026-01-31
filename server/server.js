@@ -62,17 +62,20 @@ async function resetAllTeams() {
     return { startScore, matched, modified };
 }
 
-function isAdminRequest(req) {
-    if (!ADMIN_ID) return false;
-    const adminId = String(
-        req.body?.adminId ||
-            req.query?.adminId ||
-            req.headers['x-admin-id'] ||
-            ''
-    )
-        .trim()
-        .toLowerCase();
-    return adminId === ADMIN_ID;
+async function isAdminId(adminIdRaw) {
+    const adminId = String(adminIdRaw || '').trim().toLowerCase();
+    if (!adminId) return false;
+
+    if (ADMIN_ID && adminId === ADMIN_ID) return true;
+
+    const team = await Team.findOne({ teamId: adminId }, 'isAdmin').lean();
+    return Boolean(team?.isAdmin);
+}
+
+async function isAdminRequest(req) {
+    const adminId =
+        req.body?.adminId || req.query?.adminId || req.headers['x-admin-id'] || '';
+    return await isAdminId(adminId);
 }
 
 // =======================
@@ -105,25 +108,39 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ status: 'FAIL', message: 'INVALID PIN' });
     }
 
-    res.json({ status: 'SUCCESS', teamId: sanitizedId, role: 'player' });
+    res.json({
+        status: 'SUCCESS',
+        teamId: sanitizedId,
+        role: team.isAdmin ? 'admin' : 'player'
+    });
 });
 
 // 2. CHECK GAME STATUS
 app.get('/api/game-status', (req, res) => {
     // Allow role-specific info
-    const adminId = (req.query.adminId || req.headers['x-admin-id'] || '').toLowerCase();
-    const isAdmin = adminId === ADMIN_ID;
-    res.json({
-        status: gameStatus,
-        started: IS_GAME_STARTED,
-        eventActive: IS_EVENT_ACTIVE,
-        role: isAdmin ? 'admin' : 'player'
-    });
+    const adminId = req.query.adminId || req.headers['x-admin-id'] || '';
+    isAdminId(adminId)
+        .then(isAdmin => {
+            res.json({
+                status: gameStatus,
+                started: IS_GAME_STARTED,
+                eventActive: IS_EVENT_ACTIVE,
+                role: isAdmin ? 'admin' : 'player'
+            });
+        })
+        .catch(() => {
+            res.json({
+                status: gameStatus,
+                started: IS_GAME_STARTED,
+                eventActive: IS_EVENT_ACTIVE,
+                role: 'player'
+            });
+        });
 });
 
 // 3. ADMIN: START GAME
-app.post('/api/admin/start-game', (req, res) => {
-    if (!isAdminRequest(req)) {
+app.post('/api/admin/start-game', async (req, res) => {
+    if (!(await isAdminRequest(req))) {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
     // Starting the game should also reopen the event if it was ended.
@@ -135,8 +152,8 @@ app.post('/api/admin/start-game', (req, res) => {
 });
 
 // 3b. ADMIN: END GAME (Terminate Sequence)
-app.post('/api/admin/end-game', (req, res) => {
-    if (!isAdminRequest(req)) {
+app.post('/api/admin/end-game', async (req, res) => {
+    if (!(await isAdminRequest(req))) {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
 
@@ -150,7 +167,7 @@ app.post('/api/admin/end-game', (req, res) => {
 
 // 4. ADMIN: RESET TEAM
 app.post('/api/admin/reset-team', async (req, res) => {
-    if (!isAdminRequest(req)) {
+    if (!(await isAdminRequest(req))) {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
     const { teamId, restoreScore } = req.body;
@@ -167,7 +184,7 @@ app.post('/api/admin/reset-team', async (req, res) => {
 
 // 4b. ADMIN: RESET GAME (Start Over)
 app.post('/api/admin/reset-game', async (req, res) => {
-    if (!isAdminRequest(req)) {
+    if (!(await isAdminRequest(req))) {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
 
@@ -194,7 +211,7 @@ app.post('/api/admin/reset-game', async (req, res) => {
 
 // 4c. ADMIN: RESET (Backward-compatible alias)
 app.post('/api/admin/reset', async (req, res) => {
-    if (!isAdminRequest(req)) {
+    if (!(await isAdminRequest(req))) {
         return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
     }
     try {
@@ -379,8 +396,8 @@ app.post('/api/report-violation', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
     try {
         // Admin exception: allow access if adminId is provided and matches
-        const adminId = (req.query.adminId || req.headers['x-admin-id'] || '').toLowerCase();
-        const isAdmin = adminId === ADMIN_ID;
+        const adminId = req.query.adminId || req.headers['x-admin-id'] || '';
+        const isAdmin = await isAdminId(adminId);
         if (!IS_EVENT_ACTIVE && !isAdmin) {
             return res.status(403).json({ message: 'EVENT CLOSED' });
         }

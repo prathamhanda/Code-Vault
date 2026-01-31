@@ -39,7 +39,8 @@ const generateLevelSet = (variant) => {
                 { id: "a10", code: "}" },
                 // ➤ BLUFFS
                 { id: "B1", code: "let sum = 0;" },
-                { id: "B2", code: "if arr[i] % 3 == 0:" }
+                { id: "B2", code: "if arr[i] % 3 == 0:" },
+                { id: "B23", code: " // Sum of terms divisible by 3" }
             ],
             correctSequence: ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10"],
             swappableGroups: [["a2", "a3"]],

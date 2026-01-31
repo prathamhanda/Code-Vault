@@ -7,6 +7,7 @@ const snippetSchema = new mongoose.Schema({
 
 const levelSchema = new mongoose.Schema({
     levelNumber: Number,
+    variant: { type: Number, default: 0 },
     description: String,
     snippets: [snippetSchema],
     correctSequence: [String],

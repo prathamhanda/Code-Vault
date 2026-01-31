@@ -130,11 +130,15 @@ function GameInterface() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/game-status`);
         const data = await res.json();
-        if (data.status === "WAITING") {
-          window.location.href = "/waiting-room";
-        } else {
-          setIsGameStarted(true);
+        if (data.eventActive === false) {
+          window.location.href = "/terminated";
+          return;
         }
+        if (!data.started) {
+          window.location.href = "/waiting-room";
+          return;
+        }
+        setIsGameStarted(true);
       } catch (e) {
         console.log("Server unreachable");
       }

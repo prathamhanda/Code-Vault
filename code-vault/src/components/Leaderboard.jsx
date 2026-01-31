@@ -38,7 +38,7 @@ const Leaderboard = () => {
     setResetError("");
     try {
       const adminId = localStorage.getItem("teamId");
-      const res = await fetch(`${API_BASE_URL}/api/admin/reset-game`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ adminId }),

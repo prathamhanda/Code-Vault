@@ -20,19 +20,91 @@ mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 }).then(() => co
 
 let gameStatus = 'WAITING';
 
+const DEFAULT_ADMIN_ID = process.env.NODE_ENV === 'production' ? '' : 'admin';
+const ADMIN_ID = (process.env.ADMIN_ID || DEFAULT_ADMIN_ID).trim().toLowerCase();
+let IS_EVENT_ACTIVE = process.env.IS_EVENT_ACTIVE
+    ? String(process.env.IS_EVENT_ACTIVE).toLowerCase() === 'true'
+    : true;
+let IS_GAME_STARTED = process.env.IS_GAME_STARTED
+    ? String(process.env.IS_GAME_STARTED).toLowerCase() === 'true'
+    : false;
+
+async function resetAllTeams() {
+    const startScoreRaw = process.env.START_SCORE;
+    const startScore = Number.isFinite(Number(startScoreRaw)) ? Number(startScoreRaw) : 1000;
+
+    const result = await Team.updateMany(
+        {},
+        {
+            $set: {
+                score: startScore,
+                currentLevel: 1,
+                violations: 0,
+                attempts: 0,
+                isLocked: false
+            }
+        }
+    );
+
+    const matched =
+        typeof result?.matchedCount === 'number'
+            ? result.matchedCount
+            : typeof result?.n === 'number'
+                ? result.n
+                : 0;
+    const modified =
+        typeof result?.modifiedCount === 'number'
+            ? result.modifiedCount
+            : typeof result?.nModified === 'number'
+                ? result.nModified
+                : 0;
+
+    return { startScore, matched, modified };
+}
+
+function isAdminRequest(req) {
+    if (!ADMIN_ID) return false;
+    const adminId = String(
+        req.body?.adminId ||
+            req.query?.adminId ||
+            req.headers['x-admin-id'] ||
+            ''
+    )
+        .trim()
+        .toLowerCase();
+    return adminId === ADMIN_ID;
+}
+
 // =======================
 // LOGIN WITH PIN (STRICT)
 // =======================
 app.post('/api/login', async (req, res) => {
-    const { teamId } = req.body;
+    const { teamId, pin } = req.body || {};
+    if (typeof teamId !== 'string' || !teamId.trim()) {
+        return res.status(400).json({ status: 'FAIL', message: 'TEAM ID REQUIRED' });
+    }
+
     const sanitizedId = teamId.trim().toLowerCase().replace(/\s+/g, '-');
-    // Admin login always allowed
-    if (sanitizedId === ADMIN_ID) {
+
+    // Admin login
+    if (ADMIN_ID && sanitizedId === ADMIN_ID) {
         return res.json({ status: 'SUCCESS', teamId: ADMIN_ID, role: 'admin' });
     }
-    if (!IS_EVENT_ACTIVE) return res.status(403).json({ status: 'FAIL', message: 'EVENT CLOSED' });
+
+    if (!IS_EVENT_ACTIVE) {
+        return res.status(403).json({ status: 'FAIL', message: 'EVENT CLOSED' });
+    }
+
     const team = await Team.findOne({ teamId: sanitizedId });
-    if (!team) return res.status(401).json({ status: 'FAIL', message: 'INVALID TEAM ID' });
+    if (!team) {
+        return res.status(401).json({ status: 'FAIL', message: 'INVALID TEAM ID' });
+    }
+
+    const normalizedPin = typeof pin === 'string' ? pin.trim() : '';
+    if (!normalizedPin || normalizedPin !== team.pin) {
+        return res.status(401).json({ status: 'FAIL', message: 'INVALID PIN' });
+    }
+
     res.json({ status: 'SUCCESS', teamId: sanitizedId, role: 'player' });
 });
 
@@ -42,6 +114,7 @@ app.get('/api/game-status', (req, res) => {
     const adminId = (req.query.adminId || req.headers['x-admin-id'] || '').toLowerCase();
     const isAdmin = adminId === ADMIN_ID;
     res.json({
+        status: gameStatus,
         started: IS_GAME_STARTED,
         eventActive: IS_EVENT_ACTIVE,
         role: isAdmin ? 'admin' : 'player'
@@ -56,6 +129,7 @@ app.post('/api/admin/start-game', (req, res) => {
     // Starting the game should also reopen the event if it was ended.
     IS_EVENT_ACTIVE = true;
     IS_GAME_STARTED = true;
+    gameStatus = 'ACTIVE';
     console.log('🚀 SYSTEM ALERT: GAME HAS STARTED.');
     res.json({ message: 'GAME STARTED' });
 });
@@ -68,6 +142,7 @@ app.post('/api/admin/end-game', (req, res) => {
 
     IS_GAME_STARTED = false;
     IS_EVENT_ACTIVE = false;
+    gameStatus = 'TERMINATED';
 
     console.log('🛑 SYSTEM ALERT: EVENT TERMINATED BY ADMIN.');
     res.json({ status: 'SUCCESS', message: 'EVENT TERMINATED', started: IS_GAME_STARTED, eventActive: IS_EVENT_ACTIVE });
@@ -97,7 +172,9 @@ app.post('/api/admin/reset-game', async (req, res) => {
     }
 
     try {
+        IS_EVENT_ACTIVE = true;
         IS_GAME_STARTED = false;
+        gameStatus = 'WAITING';
         const { startScore, matched, modified } = await resetAllTeams();
 
         console.log('🔁 SYSTEM RESET: GAME STOPPED + ALL TEAMS RESET.', { matched, modified, startScore });
@@ -117,8 +194,18 @@ app.post('/api/admin/reset-game', async (req, res) => {
 
 // 4c. ADMIN: RESET (Backward-compatible alias)
 app.post('/api/admin/reset', async (req, res) => {
-    try { await Team.deleteMany({}); gameStatus = 'WAITING'; res.json({ status: 'SUCCESS' }); }
-    catch (e) { res.status(500).json({ status: 'ERROR' }); }
+    if (!isAdminRequest(req)) {
+        return res.status(403).json({ message: 'ADMIN ACCESS REQUIRED' });
+    }
+    try {
+        IS_GAME_STARTED = false;
+        IS_EVENT_ACTIVE = true;
+        gameStatus = 'WAITING';
+        const { startScore, matched, modified } = await resetAllTeams();
+        res.json({ status: 'SUCCESS', startScore, matched, modified });
+    } catch (e) {
+        res.status(500).json({ status: 'ERROR' });
+    }
 });
 
 // GAME DATA
@@ -127,7 +214,10 @@ app.get('/api/game-data/:teamId', async (req, res) => {
     if (!team) return res.status(404).json({ message: 'Team not found' });
     if (team.isLocked) return res.json({ status: 'LOCKED', message: 'TERMINATED' });
 
-    const levelData = await Level.findOne({ levelNumber: team.currentLevel, variant: team.variant });
+    let levelData = await Level.findOne({ levelNumber: team.currentLevel, variant: team.variant });
+    if (!levelData) {
+        levelData = await Level.findOne({ levelNumber: team.currentLevel });
+    }
     if (!levelData) return res.json({ status: 'COMPLETE', message: 'ALL LEVELS COMPLETED!' });
 
     res.json({
@@ -139,8 +229,18 @@ app.get('/api/game-data/:teamId', async (req, res) => {
 
 // SUBMIT CODE (With Logic Fixes)
 app.post('/api/submit-code', async (req, res) => {
-    if (gameStatus !== 'ACTIVE') return res.json({ status: 'FAIL', message: 'GAME PAUSED' });
-    const { teamId, submittedOrder } = req.body;
+    if (!IS_GAME_STARTED || !IS_EVENT_ACTIVE || gameStatus !== 'ACTIVE') {
+        return res.json({ status: 'FAIL', message: 'GAME PAUSED' });
+    }
+
+    const { teamId, submittedOrder } = req.body || {};
+    if (typeof teamId !== 'string' || !teamId.trim()) {
+        return res.status(400).json({ status: 'FAIL', message: 'TEAM ID REQUIRED' });
+    }
+    if (!Array.isArray(submittedOrder)) {
+        return res.status(400).json({ status: 'FAIL', message: 'INVALID SUBMISSION' });
+    }
+
     const team = await Team.findOne({ teamId });
     if (!team || team.isLocked) return res.status(403).json({ message: 'LOCKED' });
 
@@ -149,7 +249,10 @@ app.post('/api/submit-code', async (req, res) => {
         return res.json({ status: 'FAIL', message: '2/2 ATTEMPTS FAILED. LEVEL LOCKED.' });
     }
 
-    const levelData = await Level.findOne({ levelNumber: team.currentLevel, variant: team.variant });
+    let levelData = await Level.findOne({ levelNumber: team.currentLevel, variant: team.variant });
+    if (!levelData) {
+        levelData = await Level.findOne({ levelNumber: team.currentLevel });
+    }
     if (!levelData) return res.status(400).json({ message: 'Level Error' });
 
     // LOGIC CHECK
@@ -204,14 +307,27 @@ app.post('/api/submit-code', async (req, res) => {
 
 // TERMINAL (FIXED LOGIC)
 app.post('/api/submit-terminal', async (req, res) => {
-    if (gameStatus !== 'ACTIVE') return res.json({ status: 'FAIL', message: 'PAUSED' });
-    const { teamId, userOutput } = req.body;
+    if (!IS_GAME_STARTED || !IS_EVENT_ACTIVE || gameStatus !== 'ACTIVE') {
+        return res.json({ status: 'FAIL', message: 'PAUSED' });
+    }
+
+    const { teamId, userOutput } = req.body || {};
+    if (typeof teamId !== 'string' || !teamId.trim()) {
+        return res.status(400).json({ status: 'FAIL', message: 'TEAM ID REQUIRED' });
+    }
+
     const team = await Team.findOne({ teamId });
+    if (!team) return res.status(404).json({ status: 'FAIL', message: 'TEAM NOT FOUND' });
     if (team.isLocked) return res.status(403).json({ message: 'LOCKED' });
 
     if (team.currentLevel === 10 && team.attempts >= 2) return res.json({ status: 'FAIL', message: 'MAX ATTEMPTS' });
 
-    const levelData = await Level.findOne({ levelNumber: team.currentLevel, variant: team.variant });
+    let levelData = await Level.findOne({ levelNumber: team.currentLevel, variant: team.variant });
+    if (!levelData) {
+        levelData = await Level.findOne({ levelNumber: team.currentLevel });
+    }
+    if (!levelData) return res.status(400).json({ status: 'FAIL', message: 'Level Error' });
+
     const isCorrect = userOutput.trim() === levelData.expectedOutput;
 
     if (isCorrect) team.score += 200;
@@ -224,15 +340,35 @@ app.post('/api/submit-terminal', async (req, res) => {
 });
 
 app.post('/api/skip-terminal', async (req, res) => {
-    if (gameStatus !== 'ACTIVE') return res.status(403);
-    const team = await Team.findOne({ teamId: req.body.teamId });
-    team.currentLevel++; team.attempts = 0; await team.save();
+    if (!IS_GAME_STARTED || !IS_EVENT_ACTIVE || gameStatus !== 'ACTIVE') {
+        return res.status(403).json({ status: 'FAIL', message: 'PAUSED' });
+    }
+
+    const teamId = req.body?.teamId;
+    if (typeof teamId !== 'string' || !teamId.trim()) {
+        return res.status(400).json({ status: 'FAIL', message: 'TEAM ID REQUIRED' });
+    }
+
+    const team = await Team.findOne({ teamId });
+    if (!team) return res.status(404).json({ status: 'FAIL', message: 'TEAM NOT FOUND' });
+    if (team.isLocked) return res.status(403).json({ status: 'FAIL', message: 'LOCKED' });
+
+    team.currentLevel++;
+    team.attempts = 0;
+    await team.save();
     res.json({ status: 'SUCCESS', nextLevel: team.currentLevel });
 });
 
 // VIOLATIONS
 app.post('/api/report-violation', async (req, res) => {
-    const team = await Team.findOne({ teamId: req.body.teamId });
+    const teamId = req.body?.teamId;
+    if (typeof teamId !== 'string' || !teamId.trim()) {
+        return res.status(400).json({ status: 'FAIL', message: 'TEAM ID REQUIRED' });
+    }
+
+    const team = await Team.findOne({ teamId });
+    if (!team) return res.status(404).json({ status: 'FAIL', message: 'TEAM NOT FOUND' });
+
     team.violations++;
     if (team.violations === 2) team.score = Math.max(0, team.score - 200);
     if (team.violations >= 3) team.isLocked = true;
